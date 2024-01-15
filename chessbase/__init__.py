@@ -6,3 +6,5 @@ from .chessgame import *
 from .error import *
 from .memento import Memento
 from .command import *
+from .player import Player,HumanPlayer
+from .proxy import Proxy,ProxyMode

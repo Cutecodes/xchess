@@ -1,5 +1,3 @@
-import threading
-import time
 import tkinter as tk
 import math
 from PIL import Image, ImageTk
@@ -10,7 +8,7 @@ from .messageUI import MessageUI
 from .opsUI import OpsUI
 from .tipsUI import TipsUI
 from .playerUI import PlayerUI
-from chessbase import ChessGame, Proxy, ProxyMode
+from chessbase import ChessGame
 from .replay_page import ReplayPage
 from go import GoRule
 from gobang import GobangRule
@@ -22,16 +20,10 @@ from chessbase import PieceExistError, PieceOutError, PieceForbiddenError
 from chessbase import RetractOutError, GameOver
 from chessbase import AddPieceCommand, RestartCommand, RetractCommand, GiveupCommand
 from chessbase import SkipCommand, SaveCommand, RestoreCommand
-from chessbase import HumanPlayer
-from go import GoLevel_1
-from gobang import GobangLevel_1
-from othello import OthelloLevel_1,OthelloLevel_2,OthelloLevel_3
-from common import PlayerID
 
 class GamePage(tk.Frame):
-    def __init__(self, parent, player):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.player = player
         self.parent = parent
         self.__game = None
         self.__boardUI = None
@@ -40,7 +32,7 @@ class GamePage(tk.Frame):
         self.__playerUI = None
         self.__message = None
         self.replay_page = None
-
+        
     def set_game(self, game):
         self.__game = game
 
@@ -77,17 +69,12 @@ class GamePage(tk.Frame):
             self.__ops.replay.configure(command=self.replay)
             self.__ops.grid(row=1, column=1)
         if self.__playerUI:
-            user_info1,user_info2 = self.__game.get_userinfo()
-            if user_info1:
-                self.__playerUI.update_user1(user_info1['username'],user_info1['total'],user_info1['wins'])
-            if user_info2:
-                self.__playerUI.update_user2(user_info2['username'],user_info2['total'],user_info2['wins'])
             self.__playerUI.grid(row=2, column=1)
 
         if self.__message:
             self.__message.grid(row=3, column=1)
-            #self.__message.update_message("welcome to XCHESS!")
-            #self.__message.update_message("black first")
+            self.__message.update_message("welcome to XCHESS!")
+            self.__message.update_message("black first")
         self.pack()
 
     def update(self):
@@ -157,7 +144,7 @@ class GamePage(tk.Frame):
         filename = ""
         if self.__ops:
             filename = self.__ops.entry_var.get()
-        save_command = SaveCommand(self.__game, "test_"+filename)
+        save_command = SaveCommand(self.__game, filename)
         try:
             self.__game.execute_command(save_command)
         except GameOver as e:
@@ -175,7 +162,7 @@ class GamePage(tk.Frame):
         filename = ""
         if self.__ops:
             filename = self.__ops.entry_var.get()
-        restore_command = RestoreCommand(self.__game, "test_"+filename)
+        restore_command = RestoreCommand(self.__game, filename)
         try:
             self.__game.execute_command(restore_command)
         except GameOver as e:
@@ -279,36 +266,19 @@ class GamePage(tk.Frame):
                 else:
                     player = 1
                 self.__playerUI.update_cur_player(player)
-        self.__message.update_messages(self.__game.get_message_list())
         self.update()
             
     
     def show_result(self, e):
         messagebox.showinfo("提示", "{}".format(e))
-        cur_faction = self.player._faction 
-        if cur_faction == Faction.BLACK:
-            player = "black"
-        else:
-            player = "white"
-        user = self.player._user 
-        if player in str(e):
-            self.parent.client.update(user['username'],user['passwd'],1,1)
-        else:
-            self.parent.client.update(user['username'],user['passwd'],1,0)
         self.parent.destroy()
         exit(0)
 
 
 class GamePageBuilder(ABC):
-    def __init__(self, parent, board_size, user_info, first, player1, player2, host, is_join):
+    def __init__(self, parent, board_size):
         self.parent = parent
         self.board_size = board_size
-        self.user_info = user_info
-        self.first = first
-        self.player1 = player1
-        self.player2 = player2
-        self.host = host
-        self.is_join = is_join
 
     @abstractmethod
     def reset(self):
@@ -343,26 +313,11 @@ class GamePageBuilder(ABC):
         pass
 
 class GogamePageBuilder(GamePageBuilder):
-    def __init__(self, parent, board_size, user_info, first, player1, player2, host, is_join):
-        super().__init__(parent, board_size, user_info, first, player1, player2, host, is_join)
+    def __init__(self, parent, board_size):
+        super().__init__(parent, board_size)
 
     def reset(self):
-        faction = None
-        if self.player1 == PlayerID.HUMAN.value and self.player2 == PlayerID.HUMAN.value:
-            if self.first == 0:
-                faction = Faction.BLACK
-            else:
-                faction = Faction.WHITE
-        elif self.player1 == PlayerID.HUMAN.value:
-            faction = Faction.BLACK
-        elif self.player2 == PlayerID.HUMAN.value:
-            faction = Faction.WHITE
-
-        if faction is None:
-            self.__game_page = GamePage(self.parent, None)
-        else:
-            player = HumanPlayer(user = self.user_info, faction=faction)
-            self.__game_page = GamePage(self.parent, player)
+        self.__game_page = GamePage(self.parent)
 
     def get_game_page(self) -> GamePage:
         return self.__game_page
@@ -372,36 +327,6 @@ class GogamePageBuilder(GamePageBuilder):
         rule = GoRule()
         piecefactory = PieceFactory()
         game = ChessGame(board, rule, piecefactory)
-        
-        game = Proxy(game=game)
-        user_info1 = None
-        user_info2 = None
-
-        if self.player1 == PlayerID.HUMAN.value or self.player2 == PlayerID.HUMAN.value:
-            # we need implent for something
-            if self.player1 == PlayerID.HUMAN.value:
-                user_info1 = self.user_info
-            else:
-                user_info2 = self.user_info
-            
-
-        if self.player1 == PlayerID.AI1.value or self.player1 == PlayerID.AI2.value or self.player1 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info1 = {"username":"AI1","total":0,"wins":0}
-            go_ai1 = GoLevel_1(user_info1, Faction.BLACK, game)
-            sub_thread1 = threading.Thread(target=go_ai1.run,daemon=True)
-            sub_thread1.start()
-
-        if self.player2 == PlayerID.AI1.value or self.player2 == PlayerID.AI2.value or self.player2 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info2 = {"username":"AI1","total":0,"wins":0}
-            go_ai2 = GoLevel_1(user_info2, Faction.WHITE, game)
-            sub_thread2 = threading.Thread(target=go_ai2.run,daemon=True)
-            sub_thread2.start()
-
-        game.set_userinfo1(user_info1)
-        game.set_userinfo2(user_info2)
-
         self.__game_page.set_game(game)
     
     def build_boardUI(self):
@@ -428,26 +353,11 @@ class GogamePageBuilder(GamePageBuilder):
         self.__game_page.set_message(messageui)
 
 class GobanggamePageBuilder(GamePageBuilder):
-    def __init__(self, parent, board_size, user_info, first, player1, player2, host, is_join):
-        super().__init__(parent, board_size, user_info, first, player1, player2, host, is_join)
+    def __init__(self, parent, board_size):
+        super().__init__(parent, board_size)
 
     def reset(self):
-        faction = None
-        if self.player1 == PlayerID.HUMAN.value and self.player2 == PlayerID.HUMAN.value:
-            if self.first == 0:
-                faction = Faction.BLACK
-            else:
-                faction = Faction.WHITE
-        elif self.player1 == PlayerID.HUMAN.value:
-            faction = Faction.BLACK
-        elif self.player2 == PlayerID.HUMAN.value:
-            faction = Faction.WHITE
-
-        if faction is None:
-            self.__game_page = GamePage(self.parent, None)
-        else:
-            player = HumanPlayer(user = self.user_info, faction=faction)
-            self.__game_page = GamePage(self.parent, player)
+        self.__game_page = GamePage(self.parent)
 
     def get_game_page(self) -> GamePage:
         return self.__game_page
@@ -457,37 +367,6 @@ class GobanggamePageBuilder(GamePageBuilder):
         rule = GobangRule()
         piecefactory = PieceFactory()
         game = ChessGame(board, rule, piecefactory)
-
-        game = Proxy(game=game)
-        user_info1 = None
-        user_info2 = None
-
-        if self.player1 == PlayerID.HUMAN.value or self.player2 == PlayerID.HUMAN.value:
-            # we need implent for something
-            if self.player1 == PlayerID.HUMAN.value:
-                user_info1 = self.user_info
-            else:
-                user_info2 = self.user_info
-            
-
-        if self.player1 == PlayerID.AI1.value or self.player1 == PlayerID.AI2.value or self.player1 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info1 = {"username":"AI1","total":0,"wins":0}
-            go_ai1 = GobangLevel_1(user_info1, Faction.BLACK, game)
-            sub_thread1 = threading.Thread(target=go_ai1.run,daemon=True)
-            sub_thread1.start()
-
-        if self.player2 == PlayerID.AI1.value or self.player2 == PlayerID.AI2.value or self.player2 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info2 = {"username":"AI1","total":0,"wins":0}
-            go_ai2 = GobangLevel_1(user_info2, Faction.WHITE, game)
-            sub_thread2 = threading.Thread(target=go_ai2.run,daemon=True)
-            sub_thread2.start()
-
-        game.set_userinfo1(user_info1)
-        game.set_userinfo2(user_info2)
-
-
         self.__game_page.set_game(game)
     
     def build_boardUI(self):
@@ -515,26 +394,11 @@ class GobanggamePageBuilder(GamePageBuilder):
 
 
 class OthellogamePageBuilder(GamePageBuilder):
-    def __init__(self, parent, board_size, user_info, first, player1, player2, host, is_join):
-        super().__init__(parent, board_size, user_info, first, player1, player2, host, is_join)
+    def __init__(self, parent, board_size):
+        super().__init__(parent, board_size)
 
     def reset(self):
-        faction = None
-        if self.player1 == PlayerID.HUMAN.value and self.player2 == PlayerID.HUMAN.value:
-            if self.first == 0:
-                faction = Faction.BLACK
-            else:
-                faction = Faction.WHITE
-        elif self.player1 == PlayerID.HUMAN.value:
-            faction = Faction.BLACK
-        elif self.player2 == PlayerID.HUMAN.value:
-            faction = Faction.WHITE
-
-        if faction is None:
-            self.__game_page = GamePage(self.parent, None)
-        else:
-            player = HumanPlayer(user = self.user_info, faction=faction)
-            self.__game_page = GamePage(self.parent, player)
+        self.__game_page = GamePage(self.parent)
 
     def get_game_page(self) -> GamePage:
         return self.__game_page
@@ -553,50 +417,6 @@ class OthellogamePageBuilder(GamePageBuilder):
         board.add_piece(piece,(4,4))
 
         game = ChessGame(board, rule, piecefactory)
-
-        game = Proxy(game=game)
-        user_info1 = None
-        user_info2 = None
-
-        if self.player1 == PlayerID.HUMAN.value or self.player2 == PlayerID.HUMAN.value:
-            # we need implent for something
-            if self.player1 == PlayerID.HUMAN.value:
-                user_info1 = self.user_info
-            else:
-                user_info2 = self.user_info
-            
-
-        if self.player1 == PlayerID.AI1.value or self.player1 == PlayerID.AI2.value or self.player1 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info1 = {"username":"AI1","total":0,"wins":0}
-            if self.player1 == PlayerID.AI1.value:
-                go_ai1 = OthelloLevel_1(user_info1, Faction.BLACK, game)
-            elif self.player1 == PlayerID.AI2.value:
-                user_info1 = {"username":"AI2","total":0,"wins":0}
-                go_ai1 = OthelloLevel_2(user_info1, Faction.BLACK, game)
-            else:
-                user_info1 = {"username":"AI3","total":0,"wins":0}
-                go_ai1 = OthelloLevel_3(user_info1, Faction.BLACK, game)
-            sub_thread1 = threading.Thread(target=go_ai1.run,daemon=True)
-            sub_thread1.start()
-
-        if self.player2 == PlayerID.AI1.value or self.player2 == PlayerID.AI2.value or self.player2 == PlayerID.AI3.value:
-            # go only support ai level 1 
-            user_info2 = {"username":"AI1","total":0,"wins":0}
-            if self.player2 == PlayerID.AI1.value:
-                go_ai2 = OthelloLevel_1(user_info2, Faction.WHITE, game)
-            elif self.player2 == PlayerID.AI2.value:
-                user_info2 = {"username":"AI2","total":0,"wins":0}
-                go_ai2 = OthelloLevel_2(user_info2, Faction.WHITE, game)
-            else:
-                user_info2 = {"username":"AI3","total":0,"wins":0}
-                go_ai2 = OthelloLevel_3(user_info2, Faction.WHITE, game)
-            sub_thread2 = threading.Thread(target=go_ai2.run,daemon=True)
-            sub_thread2.start()
-
-        game.set_userinfo1(user_info1)
-        game.set_userinfo2(user_info2)
-
         self.__game_page.set_game(game)
     
     def build_boardUI(self):

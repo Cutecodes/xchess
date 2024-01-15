@@ -12,5 +12,3 @@ class Result(Enum):
 class GameState(Enum):
     RUNNING = 0
     END = 1
-
-DUMP_PATH = "./dump"

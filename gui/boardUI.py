@@ -75,7 +75,7 @@ class BoardUI(tk.Frame):
         elif self.__mode == BoardUIMode.GRID:
             size = self.__board_size
             canvas_size = (size+2)*grid_size
-        
+
         if self._board_texture is not None and self._board_img is None:
             self._board_img = ImageTk.PhotoImage(self._board_texture.resize((2*canvas_size, 2*canvas_size)))
             self.__canvas.create_image(0,0,image=self._board_img)

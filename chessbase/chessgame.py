@@ -12,6 +12,7 @@ class ChessGame():
     def __init__(self, board:Board, rule:Rule, piece_factory:PieceFactory, factions=[Faction.BLACK, Faction.WHITE], max_retract_times=1):
         self.__factions = factions
         self.__board = board
+        self.__init_board = copy.deepcopy(self.__board)
         self.__rule = rule
         self.__piece_factory = piece_factory
         self.__max_retract_times = max_retract_times
@@ -51,7 +52,9 @@ class ChessGame():
         self.__cur_faction = self.__rule.get_next_faction(self.__board, self.__cur_faction, self.__factions)
         self.__give_up_state = {f:False for f in self.__factions}
         if not self.__rule.can_continue(self.__board):
+            self.__state = GameState.END
             self.return_result()
+
 
     def move_piece(self, faction:Faction, origin_pos, target_pos):
         if faction != self.__cur_faction:
@@ -90,11 +93,7 @@ class ChessGame():
     
     def board_init(self):
         # may override for different
-        size = self.__board.get_size()
-        for x in range(size):
-            for y in range(size):
-                if self.__board.get_piece((x,y)):
-                    self.__board.remove_piece((x,y))
+        self.__board = copy.deepcopy(self.__init_board)
 
     def restart(self):
         self.board_init()
@@ -134,27 +133,42 @@ class ChessGame():
         else:
             return False
 
-    def save(self) -> Memento:
+    def save(self, save_history_command=False) -> Memento:
         state = {}
         state['cur_faction'] = self.__cur_faction
         state['state'] = self.__state
         state['winner'] = self.__winner
         state['board'] = copy.deepcopy(self.__board)
-        #state['history_command'] = copy.deepcopy(self.__history_command)
+        if save_history_command:
+            state['history_command'] = copy.deepcopy(self.__history_command)
         state['retract_times'] = copy.deepcopy(self.__retract_times)
         state['give_up_state'] = copy.deepcopy(self.__give_up_state)
         return Memento(state)
 
     def restore(self, memento:Memento):
+        if memento is None:
+            return
+
         state = memento.get_state()
         self.__cur_faction = state['cur_faction']
         self.__state = state['state']
         self.__winner = state['winner']
-        self.__board = state['board'] 
-        #self.__history_command = state['history_command']
+        self.__board = state['board']
+        if 'history_command' in state.keys():
+            self.__history_command = state['history_command']
         self.__retract_times = state['retract_times'] 
         self.__give_up_state = state['give_up_state'] 
     
-    def replay(self):
-        pass
+    def get_state_at(self, index):
+        length = len(self.__history_command)
+        if index < length:
+            command = self.__history_command[index]
+            memento = command.memento
+            if memento is None:
+                return None
+            else:
+                state = memento.get_state()
+                return state['board']
+        else:
+            return None
 

@@ -13,3 +13,9 @@ class MessageUI(tk.Frame):
     def update_message(self, message):
         self.text.insert(tk.END, "[{}]:{}\n".format(time.strftime("%Y-%m-%d %H:%M:%S"),message))
         self.text.see(tk.END)
+
+    def update_messages(self, message_list):
+        self.text.delete(1.0,tk.END)
+        for m in message_list:
+            self.text.insert(tk.END,m+"\n")
+        self.text.see(tk.END)

@@ -1,5 +1,4 @@
 from .command import Command
-from chessbase import DUMP_PATH
 import pickle
 import os
 class RestoreCommand(Command):
@@ -9,7 +8,7 @@ class RestoreCommand(Command):
         
     def execute(self):
         self.save()
-        filepath = os.path.join(DUMP_PATH,self.filename)
+        filepath = os.path.join(os.path.dirname(__file__) + os.path.sep + "../../", r"data/dumps/"+self.filename)
         with open(filepath,'rb') as f:
            self.memento = pickle.load(f) 
         self.undo()
